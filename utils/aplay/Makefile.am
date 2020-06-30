@@ -11,7 +11,8 @@ bluealsa_aplay_SOURCES = \
 	../../src/shared/log.c \
 	alsa-pcm.c \
 	dbus.c \
-	aplay.c
+	aplay.c \
+	volume_mapping.c
 
 bluealsa_aplay_CFLAGS = \
 	-I$(top_srcdir)/src \
