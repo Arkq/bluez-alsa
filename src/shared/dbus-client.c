@@ -568,6 +568,343 @@ fail:
 	return FALSE;
 }
 
+static dbus_bool_t parse_dbus_string_array(DBusMessageIter *iter, void *out, int size, int strlen, DBusError *err) {
+	DBusMessageIter iter2;
+	char *array = out;
+	int count;
+	for (dbus_message_iter_recurse(iter, &iter2), count = 0;
+			dbus_message_iter_get_arg_type(&iter2) != DBUS_TYPE_INVALID &&
+				count < size;
+			dbus_message_iter_next(&iter2), count++) {
+		if (dbus_message_iter_get_arg_type(&iter2) != DBUS_TYPE_STRING) {
+			dbus_set_error(err, DBUS_ERROR_FAILED, "DBus message corrupted");
+			return FALSE;
+		}
+
+		const char *tmp;
+		dbus_message_iter_get_basic(&iter2, &tmp);
+		strncpy(&array[count * strlen], tmp, strlen);
+	}
+	array[count * strlen] = 0;
+	return TRUE;
+}
+
+static dbus_bool_t parse_hfp_config(const char *key, DBusMessageIter *val, void *data, DBusError *error) {
+	struct ba_status *status = (struct ba_status *)data;
+	char type = dbus_message_iter_get_arg_type(val);
+	if (strcmp(key, "FeaturesSDPHF") == 0) {
+		if (type != DBUS_TYPE_ARRAY)
+			return FALSE;
+		if (!parse_dbus_string_array(val, &status->hfp.sdp_features_hf, ARRAYSIZE(status->hfp.sdp_features_hf), sizeof(status->hfp.sdp_features_hf[0]), error))
+			return FALSE;
+	}
+	else if (strcmp(key, "FeaturesSDPAG") == 0) {
+		if (type != DBUS_TYPE_ARRAY)
+			return FALSE;
+		if (!parse_dbus_string_array(val, &status->hfp.sdp_features_ag, ARRAYSIZE(status->hfp.sdp_features_ag), sizeof(status->hfp.sdp_features_ag[0]), error))
+			return FALSE;
+	}
+	else if (strcmp(key, "FeaturesRFCOMMHF") == 0) {
+		if (type != DBUS_TYPE_ARRAY)
+			return FALSE;
+		if (!parse_dbus_string_array(val, &status->hfp.rfcomm_features_hf, ARRAYSIZE(status->hfp.rfcomm_features_hf), sizeof(status->hfp.rfcomm_features_hf[0]), error))
+			return FALSE;
+	}
+	else if (strcmp(key, "FeaturesRFCOMMAG") == 0) {
+		if (type != DBUS_TYPE_ARRAY)
+			return FALSE;
+		if (!parse_dbus_string_array(val, &status->hfp.rfcomm_features_ag, ARRAYSIZE(status->hfp.rfcomm_features_ag), sizeof(status->hfp.rfcomm_features_ag[0]), error))
+			return FALSE;
+	}
+	else if (strcmp(key, "XAPLVendorID") == 0) {
+		if (type != DBUS_TYPE_UINT32)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->hfp.xapl_vendor_id);
+	}
+	else if (strcmp(key, "XAPLProductID") == 0) {
+		if (type != DBUS_TYPE_UINT32)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->hfp.xapl_product_id);
+	}
+	else if (strcmp(key, "XAPLSoftwareVersion") == 0) {
+		if (type != DBUS_TYPE_STRING)
+			return FALSE;
+		const char *tmp;
+		dbus_message_iter_get_basic(val, &tmp);
+		strncpy(status->hfp.xapl_software_version, tmp, sizeof(status->hfp.xapl_software_version) - 1);
+	}
+	else if (strcmp(key, "XAPLProductName") == 0) {
+		if (type != DBUS_TYPE_STRING)
+			return FALSE;
+		const char *tmp;
+		dbus_message_iter_get_basic(val, &tmp);
+		strncpy(status->hfp.xapl_product_name, tmp, sizeof(status->hfp.xapl_product_name) - 1);
+	}
+	else if (strcmp(key, "XAPLFeatures") == 0) {
+		if (type != DBUS_TYPE_ARRAY)
+			return FALSE;
+		if (!parse_dbus_string_array(val, &status->hfp.xapl_features, ARRAYSIZE(status->hfp.xapl_features), sizeof(status->hfp.xapl_features[0]), error))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+static dbus_bool_t parse_battery_config(const char *key, DBusMessageIter *val, void *data, DBusError *error) {
+	struct ba_status *status = (struct ba_status *)data;
+	char type = dbus_message_iter_get_arg_type(val);
+	if (strcmp(key, "Available") == 0) {
+		if (type != DBUS_TYPE_BOOLEAN)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->battery.available);
+	}
+	if (strcmp(key, "Level") == 0) {
+		if (type != DBUS_TYPE_UINT32)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->battery.level);
+	}
+
+	return TRUE;
+}
+
+static dbus_bool_t parse_a2dp_config(const char *key, DBusMessageIter *val, void *data, DBusError *error) {
+	struct ba_status *status = (struct ba_status *)data;
+	char type = dbus_message_iter_get_arg_type(val);
+	if (strcmp(key, "NativeVolume") == 0) {
+		if (type != DBUS_TYPE_BOOLEAN)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->a2dp.native_volume);
+	}
+	else if (strcmp(key, "ForceMono") == 0) {
+		if (type != DBUS_TYPE_BOOLEAN)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->a2dp.force_mono);
+	}
+	else if (strcmp(key, "Force44100") == 0) {
+		if (type != DBUS_TYPE_BOOLEAN)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->a2dp.force_44100);
+	}
+	else if (strcmp(key, "KeepAlive") == 0) {
+		if (type != DBUS_TYPE_INT32)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->a2dp.keep_alive);
+	}
+	return TRUE;
+}
+
+static dbus_bool_t parse_aac_config(const char *key, DBusMessageIter *val, void *data, DBusError *error) {
+	struct ba_status *status = (struct ba_status *)data;
+	char type = dbus_message_iter_get_arg_type(val);
+	if (strcmp(key, "Available") == 0) {
+		if (type != DBUS_TYPE_BOOLEAN)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->aac.available);
+	}
+	else if (strcmp(key, "Afterburner") == 0) {
+		if (type != DBUS_TYPE_BOOLEAN)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->aac.afterburner);
+	}
+	else if (strcmp(key, "LATMVersion") == 0) {
+		if (type != DBUS_TYPE_BYTE)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->aac.latm_version);
+	}
+	else if (strcmp(key, "VBRMode") == 0) {
+		if (type != DBUS_TYPE_BYTE)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->aac.vbr_mode);
+	}
+	return TRUE;
+}
+
+static dbus_bool_t parse_mpeg_config(const char *key, DBusMessageIter *val, void *data, DBusError *error) {
+	struct ba_status *status = (struct ba_status *)data;
+	char type = dbus_message_iter_get_arg_type(val);
+	if (strcmp(key, "Available") == 0) {
+		if (type != DBUS_TYPE_BOOLEAN)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->mpeg.available);
+	}
+	else if (strcmp(key, "Quality") == 0) {
+		if (type != DBUS_TYPE_BYTE)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->mpeg.quality);
+	}
+	else if (strcmp(key, "VBRQuality") == 0) {
+		if (type != DBUS_TYPE_BYTE)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->mpeg.vbr_quality);
+	}
+	return TRUE;
+}
+
+static dbus_bool_t parse_ldac_config(const char *key, DBusMessageIter *val, void *data, DBusError *error) {
+	struct ba_status *status = (struct ba_status *)data;
+	char type = dbus_message_iter_get_arg_type(val);
+	if (strcmp(key, "Available") == 0) {
+		if (type != DBUS_TYPE_BOOLEAN)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->ldac.available);
+	}
+	else if (strcmp(key, "ABR") == 0) {
+		if (type != DBUS_TYPE_BOOLEAN)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->ldac.abr);
+	}
+	else if (strcmp(key, "Eqmid") == 0) {
+		if (type != DBUS_TYPE_BYTE)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->ldac.eqmid);
+	}
+	return TRUE;
+}
+
+/* Callback function for BlueALSA Service status parser. */
+static dbus_bool_t bluealsa_dbus_message_iter_get_status_cb(const char *key,
+		DBusMessageIter *val, void *userdata, DBusError *error) {
+
+	struct ba_status *status = (struct ba_status *)userdata;
+	char type = dbus_message_iter_get_arg_type(val);
+
+	if (strcmp(key, "Version") == 0) {
+		if (type != DBUS_TYPE_STRING)
+			return FALSE;
+		const char *tmp;
+		dbus_message_iter_get_basic(val, &tmp);
+		strncpy(status->version, tmp, sizeof(status->version) - 1);
+	}
+	else if (strcmp(key, "Profiles") == 0) {
+		if (type != DBUS_TYPE_ARRAY)
+			return FALSE;
+		if (! parse_dbus_string_array(val, &status->profiles, ARRAYSIZE(status->profiles), sizeof(status->profiles[0]), error))
+			return FALSE;
+	}
+	else if (strcmp(key, "Adapters") == 0) {
+		if (type != DBUS_TYPE_ARRAY)
+			return FALSE;
+		if (! parse_dbus_string_array(val, &status->adapters, ARRAYSIZE(status->adapters), sizeof(status->adapters[0]), error))
+			return FALSE;
+	}
+	else if (strcmp(key, "AdapterFilter") == 0) {
+		if (type != DBUS_TYPE_ARRAY)
+			return FALSE;
+		if (! parse_dbus_string_array(val, &status->adapter_filter, ARRAYSIZE(status->adapter_filter), sizeof(status->adapter_filter[0]), error))
+			return FALSE;
+	}
+	else if (strcmp(key, "HFP") == 0) {
+		if (type != DBUS_TYPE_ARRAY)
+			return FALSE;
+		if (!bluealsa_dbus_message_iter_dict(val, error, parse_hfp_config, status))
+			return FALSE;
+	}
+	else if (strcmp(key, "MSBC") == 0) {
+		if (type != DBUS_TYPE_BOOLEAN)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->msbc_available);
+	}
+	else if (strcmp(key, "A2DP") == 0) {
+		if (type != DBUS_TYPE_ARRAY)
+			return FALSE;
+		if (!bluealsa_dbus_message_iter_dict(val, error, parse_a2dp_config, status))
+			return FALSE;
+	}
+	else if (strcmp(key, "SBCQuality") == 0) {
+		if (type != DBUS_TYPE_STRING)
+			return FALSE;
+		const char *tmp;
+		dbus_message_iter_get_basic(val, &tmp);
+		strncpy(status->sbc_quality, tmp, sizeof(status->sbc_quality) - 1);
+	}
+	else if (strcmp(key, "AAC") == 0) {
+		if (type != DBUS_TYPE_ARRAY)
+			return FALSE;
+		if (!bluealsa_dbus_message_iter_dict(val, error, parse_aac_config, status))
+			return FALSE;
+	}
+	else if (strcmp(key, "MPEG") == 0) {
+		if (type != DBUS_TYPE_ARRAY)
+			return FALSE;
+		if (!bluealsa_dbus_message_iter_dict(val, error, parse_mpeg_config, status))
+			return FALSE;
+	}
+	else if (strcmp(key, "APTX") == 0) {
+		if (type != DBUS_TYPE_BOOLEAN)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->aptx_available);
+	}
+	else if (strcmp(key, "APTX-HD") == 0) {
+		if (type != DBUS_TYPE_BOOLEAN)
+			return FALSE;
+		dbus_message_iter_get_basic(val, &status->aptx_hd_available);
+	}
+	else if (strcmp(key, "LDAC") == 0) {
+		if (type != DBUS_TYPE_ARRAY)
+			return FALSE;
+		if (!bluealsa_dbus_message_iter_dict(val, error, parse_ldac_config, status))
+			return FALSE;
+	}
+	else if (strcmp(key, "Battery") == 0) {
+		if (type != DBUS_TYPE_ARRAY)
+			return FALSE;
+		if (!bluealsa_dbus_message_iter_dict(val, error, parse_battery_config, status))
+			return FALSE;
+	}
+
+	return TRUE;
+
+}
+
+/**
+ * Get status of BlueALSA service. */
+dbus_bool_t bluealsa_dbus_get_status(
+		struct ba_dbus_ctx *ctx,
+		struct ba_status *status,
+		DBusError *error) {
+
+	dbus_bool_t ret = FALSE;
+
+	DBusMessage *msg;
+	if ((msg = dbus_message_new_method_call(ctx->ba_service,
+			"/org/bluealsa", DBUS_INTERFACE_PROPERTIES, "GetAll")) == NULL) {
+		dbus_set_error(error, DBUS_ERROR_FAILED, "%s", strerror(ENOMEM));
+		goto fail;
+	}
+
+	DBusMessageIter iter;
+	dbus_message_iter_init_append(msg, &iter);
+	static const char *interface = BLUEALSA_INTERFACE_MANAGER;
+
+	if (!dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &interface)) {
+		dbus_set_error(error, DBUS_ERROR_FAILED, "%s", strerror(ENOMEM));
+		goto fail;
+	}
+
+	DBusMessage *rep;
+	if ((rep = dbus_connection_send_with_reply_and_block(ctx->conn,
+			msg, DBUS_TIMEOUT_USE_DEFAULT, error)) == NULL)
+		goto fail;
+
+	if (!dbus_message_iter_init(rep, &iter)) {
+		dbus_set_error(error, DBUS_ERROR_FAILED, "%s", strerror(ENOMEM));
+		goto fail;
+	}
+
+	if (!bluealsa_dbus_message_iter_dict(&iter, error, bluealsa_dbus_message_iter_get_status_cb, status)
+)
+		goto fail;
+
+	ret = TRUE;
+
+fail:
+	if (msg != NULL)
+		dbus_message_unref(msg);
+	if (rep != NULL)
+		dbus_message_unref(rep);
+	return ret;
+
+}
+
 /**
  * Parse BlueALSA PCM. */
 dbus_bool_t bluealsa_dbus_message_iter_get_pcm(

@@ -533,6 +533,10 @@ fail:
 		if (err != NULL) {
 			warn("Couldn't register media endpoint: %s", err->message);
 			g_error_free(err);
+			if (ttype.profile == BA_TRANSPORT_PROFILE_A2DP_SOURCE)
+				config.enable.a2dp_source = false;
+			else
+				config.enable.a2dp_sink = false;
 		}
 	}
 
@@ -823,6 +827,20 @@ fail:
 	if (err != NULL) {
 		warn("Couldn't register hands-free profile: %s", err->message);
 		g_error_free(err);
+		switch (ttype.profile) {
+		case BA_TRANSPORT_PROFILE_HSP_HS:
+			config.enable.hsp_hs = false;
+			break;
+		case BA_TRANSPORT_PROFILE_HSP_AG:
+			config.enable.hsp_ag = false;
+			break;
+		case BA_TRANSPORT_PROFILE_HFP_HF:
+			config.enable.hfp_hf = false;
+			break;
+		case BA_TRANSPORT_PROFILE_HFP_AG:
+			config.enable.hfp_ag = false;
+			break;
+		}
 	}
 
 	pthread_mutex_unlock(&bluez_mutex);

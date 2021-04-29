@@ -82,9 +82,6 @@ struct ba_config {
 
 	struct {
 
-		/* NULL-terminated list of available A2DP codecs */
-		const struct bluez_a2dp_codec **codecs;
-
 		/* Control audio volume natively by the connected device. The disadvantage
 		 * of this control type is a monophonic volume change. */
 		bool volume;

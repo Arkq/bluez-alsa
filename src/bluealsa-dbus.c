@@ -32,6 +32,7 @@
 #include "ba-device.h"
 #include "bluealsa-iface.h"
 #include "bluealsa.h"
+#include "codec-sbc.h"
 #include "dbus.h"
 #include "hfp.h"
 #include "utils.h"
@@ -281,11 +282,373 @@ static void bluealsa_manager_method_call(GDBusConnection *conn, const char *send
 
 }
 
+static GVariant *ba_variant_new_version(void) {
+	static const char *version = PACKAGE_VERSION;
+	return g_variant_new_string(version);
+}
+
+static GVariant *ba_variant_new_profiles(void) {
+	const gchar *strv[8];
+	int n = 0;
+	if (config.enable.a2dp_source)
+		strv[n++] = "A2DP-source";
+	if (config.enable.a2dp_sink)
+		strv[n++] = "A2DP-sink";
+	if (config.enable.hfp_ofono)
+		strv[n++] = "HFP-ofono";
+	if (config.enable.hfp_hf)
+		strv[n++] = "HFP-HF";
+	if (config.enable.hfp_ag)
+		strv[n++] = "HFP-AG";
+	if (config.enable.hsp_hs)
+		strv[n++] = "HSP-HS";
+	if (config.enable.hsp_ag)
+		strv[n++] = "HSP-AG";
+	strv[n] = NULL;
+
+	return g_variant_new_strv(strv, -1);
+}
+
+static GVariant *ba_variant_new_adapters(void) {
+	const gchar *strv[HCI_MAX_DEV];
+
+	int a, s = 0;
+	for (a = 0; a < HCI_MAX_DEV; a++) {
+		if (config.adapters[a] && config.adapters[a]->hci.name)
+			strv[s++] = config.adapters[a]->hci.name;
+	}
+	strv[s] = NULL;
+
+	return g_variant_new_strv(strv, -1);
+}
+
+static GVariant *ba_variant_new_adapterfilter(void) {
+	return g_variant_new_strv((const gchar* const*)config.hci_filter->data, config.hci_filter->len);
+}
+
+static GVariant *ba_variant_new_hfp(void) {
+	GVariantDict dict;
+	/* max number of features is 12, plus NULL terminator */
+	const gchar *strv[13];
+	int index;
+
+	g_variant_dict_init (&dict, NULL);
+
+	if (config.enable.hfp_ag) {
+		index = 0;
+		if (config.hfp.features_sdp_ag & SDP_HFP_AG_FEAT_TWC)
+			strv[index++] = "TWC";
+		if (config.hfp.features_sdp_ag & SDP_HFP_AG_FEAT_ECNR)
+			strv[index++] = "ECNR";
+		if (config.hfp.features_sdp_ag & SDP_HFP_AG_FEAT_VREC)
+			strv[index++] = "VREC";
+		if (config.hfp.features_sdp_ag & SDP_HFP_AG_FEAT_RING)
+			strv[index++] = "RING";
+		if (config.hfp.features_sdp_ag & SDP_HFP_AG_FEAT_VTAG)
+			strv[index++] = "VTAG";
+		if (config.hfp.features_sdp_ag & SDP_HFP_AG_FEAT_WBAND)
+			strv[index++] = "WBAND";
+		strv[index] = NULL;
+		g_variant_dict_insert_value(&dict, "FeaturesSDPAG",
+				 g_variant_new_strv(strv, -1));
+
+		index = 0;
+		if (config.hfp.features_rfcomm_ag & HFP_AG_FEAT_3WC)
+			strv[index++] = "3WC";
+		if (config.hfp.features_rfcomm_ag & HFP_AG_FEAT_ECNR)
+			strv[index++] = "ECNR";
+		if (config.hfp.features_rfcomm_ag & HFP_AG_FEAT_VOICE)
+			strv[index++] = "VOICE";
+		if (config.hfp.features_rfcomm_ag & HFP_AG_FEAT_RING)
+			strv[index++] = "RING";
+		if (config.hfp.features_rfcomm_ag & HFP_AG_FEAT_VTAG)
+			strv[index++] = "VTAG";
+		if (config.hfp.features_rfcomm_ag & HFP_AG_FEAT_REJECT)
+			strv[index++] = "REJECT";
+		if (config.hfp.features_rfcomm_ag & HFP_AG_FEAT_ECS)
+			strv[index++] = "ECS";
+		if (config.hfp.features_rfcomm_ag & HFP_AG_FEAT_ECC)
+			strv[index++] = "ECC";
+		if (config.hfp.features_rfcomm_ag & HFP_AG_FEAT_EERC)
+			strv[index++] = "EERC";
+		if (config.hfp.features_rfcomm_ag & HFP_AG_FEAT_CODEC)
+			strv[index++] = "CODEC";
+		if (config.hfp.features_rfcomm_ag & HFP_AG_FEAT_HFIND)
+			strv[index++] = "HFIND";
+		if (config.hfp.features_rfcomm_ag & HFP_AG_FEAT_ESCO)
+			strv[index++] = "ESCO";
+		strv[index] = NULL;
+		g_variant_dict_insert_value(&dict, "FeaturesRFCOMMAG",
+				 g_variant_new_strv(strv, -1));
+	}
+
+	if (config.enable.hfp_hf) {
+		index = 0;
+		if (config.hfp.features_sdp_hf & SDP_HFP_HF_FEAT_ECNR)
+			strv[index++] = "ECNR";
+		if (config.hfp.features_sdp_hf & SDP_HFP_HF_FEAT_TWC)
+			strv[index++] = "TWC";
+		if (config.hfp.features_sdp_hf & SDP_HFP_HF_FEAT_CLI)
+			strv[index++] = "CLI";
+		if (config.hfp.features_sdp_hf & SDP_HFP_HF_FEAT_VREC)
+			strv[index++] = "VREC";
+		if (config.hfp.features_sdp_hf & SDP_HFP_HF_FEAT_VOLUME)
+			strv[index++] = "VOLUME";
+		if (config.hfp.features_sdp_hf & SDP_HFP_HF_FEAT_WBAND)
+			strv[index++] = "WBAND";
+		strv[index] = NULL;
+		g_variant_dict_insert_value(&dict, "FeaturesSDPHF",
+				 g_variant_new_strv(strv, -1));
+
+		index = 0;
+		if (config.hfp.features_rfcomm_hf & HFP_HF_FEAT_ECNR)
+			strv[index++] = "ECNR";
+		if (config.hfp.features_rfcomm_hf & HFP_HF_FEAT_3WC)
+			strv[index++] = "3WC";
+		if (config.hfp.features_rfcomm_hf & HFP_HF_FEAT_CLI)
+			strv[index++] = "CLI";
+		if (config.hfp.features_rfcomm_hf & HFP_HF_FEAT_VOICE)
+			strv[index++] = "VOICE";
+		if (config.hfp.features_rfcomm_hf & HFP_HF_FEAT_VOLUME)
+			strv[index++] = "VOLUME";
+		if (config.hfp.features_rfcomm_hf & HFP_HF_FEAT_ECS)
+			strv[index++] = "ECS";
+		if (config.hfp.features_rfcomm_hf & HFP_HF_FEAT_ECC)
+			strv[index++] = "ECC";
+		if (config.hfp.features_rfcomm_hf & HFP_HF_FEAT_CODEC)
+			strv[index++] = "CODEC";
+		if (config.hfp.features_rfcomm_hf & HFP_HF_FEAT_HFIND)
+			strv[index++] = "HFIND";
+		if (config.hfp.features_rfcomm_hf & HFP_HF_FEAT_ESCO)
+			strv[index++] = "ESCO";
+		strv[index] = NULL;
+		g_variant_dict_insert_value(&dict, "FeaturesRFCOMMHF",
+				g_variant_new_strv(strv, -1));
+	}
+
+
+	g_variant_dict_insert(&dict, "XAPLVendorID", "u", config.hfp.xapl_vendor_id);
+	g_variant_dict_insert(&dict, "XAPLProductID", "u", config.hfp.xapl_product_id);
+	g_variant_dict_insert(&dict, "XAPLSoftwareVersion", "s", config.hfp.xapl_software_version);
+	g_variant_dict_insert(&dict, "XAPLProductName", "s", config.hfp.xapl_product_name);
+
+	index = 0;
+	if (config.hfp.xapl_features & XAPL_FEATURE_BATTERY)
+		strv[index++] = "BATTERY";
+	if (config.hfp.xapl_features & XAPL_FEATURE_DOCKING)
+		strv[index++] = "DOCKING";
+	if (config.hfp.xapl_features & XAPL_FEATURE_SIRI)
+		strv[index++] = "SIRI";
+	if (config.hfp.xapl_features & XAPL_FEATURE_DENOISE)
+		strv[index++] = "DENOISE";
+	strv[index] = NULL;
+	g_variant_dict_insert_value(&dict, "XAPLFeatures",
+			g_variant_new_strv(strv, -1));
+
+	return g_variant_dict_end(&dict);
+}
+
+static GVariant *ba_variant_new_msbc(void) {
+#if ENABLE_MSBC
+	return g_variant_new_boolean(config.enable.hfp_hf ||
+			config.enable.hfp_ag || config.enable.hfp_ofono);
+#else
+	return g_variant_new_boolean(FALSE);
+#endif
+}
+
+static GVariant *ba_variant_new_a2dp(void) {
+	GVariantDict dict;
+
+	g_variant_dict_init (&dict, NULL);
+	g_variant_dict_insert (&dict, "NativeVolume", "b", config.a2dp.volume);
+	g_variant_dict_insert (&dict, "ForceMono", "b", config.a2dp.force_mono);
+	g_variant_dict_insert (&dict, "Force44100", "b", config.a2dp.force_44100);
+	g_variant_dict_insert (&dict, "KeepAlive", "i", config.a2dp.keep_alive);
+
+	return g_variant_dict_end(&dict);
+}
+
+static GVariant *ba_variant_new_sbc_quality(void) {
+	const char *quality;
+	switch (config.sbc_quality) {
+		case SBC_QUALITY_LOW:
+			quality = "LOW";
+			break;
+		case SBC_QUALITY_MEDIUM:
+			quality = "MEDIUM";
+			break;
+		case SBC_QUALITY_HIGH:
+			quality = "HIGH";
+			break;
+		case SBC_QUALITY_XQ:
+			quality = "XQ";
+			break;
+		default:
+			return NULL;
+	}
+	return g_variant_new_string(quality);
+}
+
+static GVariant *ba_variant_new_aac(void) {
+	GVariantDict dict;
+
+	g_variant_dict_init (&dict, NULL);
+#if ENABLE_AAC
+	g_variant_dict_insert (&dict, "Available", "b", TRUE);
+	if (config.enable.a2dp_source) {
+		g_variant_dict_insert (&dict, "Afterburner", "b", config.aac_afterburner);
+		g_variant_dict_insert (&dict, "LATMVersion", "y", config.aac_latm_version);
+		g_variant_dict_insert (&dict, "VBRMode", "y", config.aac_vbr_mode);
+	}
+#else
+	g_variant_dict_insert (&dict, "Available", "b", FALSE);
+#endif
+
+	return g_variant_dict_end(&dict);
+}
+
+static GVariant *ba_variant_new_mpeg(void) {
+	GVariantDict dict;
+
+	g_variant_dict_init (&dict, NULL);
+#if ENABLE_MPG123 || ENABLE_MP3LAME
+	gboolean mpeg_available = config.enable.a2dp_sink;
+#if ENABLE_MP3LAME
+	if (config.enable.a2dp_source) {
+		mpeg_available = TRUE;
+		g_variant_dict_insert (&dict, "Quality", "y", config.lame_quality);
+		g_variant_dict_insert (&dict, "VBRQuality", "y", config.lame_vbr_quality);
+	}
+#endif
+	if (mpeg_available) {
+		g_variant_dict_insert (&dict, "Available", "b", TRUE);
+	}
+#else
+	g_variant_dict_insert (&dict, "Available", "b", FALSE);
+#endif
+
+	return g_variant_dict_end(&dict);
+}
+
+static GVariant *ba_variant_new_aptx(void) {
+#if ENABLE_APTX
+#if HAVE_APTX_DECODE
+	return g_variant_new_boolean(config.enable.a2dp_source || config.enable.a2dp_sink);
+#else
+	return g_variant_new_boolean(config.enable.a2dp_source);
+#endif
+#else
+	return g_variant_new_boolean(FALSE);
+#endif
+}
+static GVariant *ba_variant_new_aptx_hd(void) {
+#if ENABLE_APTX_HD
+#if HAVE_APTX_HD_DECODE
+	return g_variant_new_boolean(config.enable.a2dp_source || config.enable.a2dp_sink);
+#else
+	return g_variant_new_boolean(config.enable.a2dp_source);
+#endif
+#else
+	return g_variant_new_boolean(FALSE);
+#endif
+}
+
+static GVariant *ba_variant_new_ldac(void) {
+	GVariantDict dict;
+
+	g_variant_dict_init (&dict, NULL);
+#if ENABLE_LDAC
+#if HAVE_LDAC_DECODE
+	g_variant_dict_insert (&dict, "Available", "b", config.enable.a2dp_source || config.enable.a2dp_sink);
+#else
+	g_variant_dict_insert (&dict, "Available", "b", config.enable.a2dp_source);
+#endif
+	if (config.enable.a2dp_source) {
+		g_variant_dict_insert (&dict, "ABR", "b", config.ldac_abr);
+		g_variant_dict_insert (&dict, "Eqmid", "y", config.ldac_eqmid);
+	}
+#else
+	g_variant_dict_insert (&dict, "Available", "b", FALSE);
+#endif
+
+	return g_variant_dict_end(&dict);
+}
+
+static GVariant *ba_variant_new_battery(void) {
+	GVariantDict dict;
+
+	g_variant_dict_init (&dict, NULL);
+	g_variant_dict_insert (&dict, "Available", "b", config.battery.available);
+	if (config.battery.available)
+		g_variant_dict_insert (&dict, "Level", "u", config.battery.level);
+
+	return g_variant_dict_end(&dict);
+}
+
+static GVariant *bluealsa_manager_get_property(GDBusConnection *conn,
+		const char *sender, const char *path, const char *interface,
+		const char *property, GError **error, void *userdata) {
+	(void)conn;
+	(void)sender;
+	(void)path;
+	(void)interface;
+	(void)userdata;
+
+	if (strcmp(property, "Version") == 0)
+		return ba_variant_new_version();
+
+	if (strcmp(property, "Profiles") == 0)
+		return ba_variant_new_profiles();
+
+	if (strcmp(property, "Adapters") == 0)
+		return ba_variant_new_adapters();
+
+	if (strcmp(property, "AdapterFilter") == 0)
+		return ba_variant_new_adapterfilter();
+
+	if (strcmp(property, "HFP") == 0)
+		return ba_variant_new_hfp();
+
+	if (strcmp(property, "MSBC") == 0)
+		return ba_variant_new_msbc();
+
+	if (strcmp(property, "A2DP") == 0)
+		return ba_variant_new_a2dp();
+
+	if (strcmp(property, "SBCQuality") == 0)
+		return ba_variant_new_sbc_quality();
+
+	if (strcmp(property, "AAC") == 0)
+		return ba_variant_new_aac();
+
+	if (strcmp(property, "MPEG") == 0)
+		return ba_variant_new_mpeg();
+
+	if (strcmp(property, "LDAC") == 0)
+		return ba_variant_new_ldac();
+
+	if (strcmp(property, "APTX") == 0)
+		return ba_variant_new_aptx();
+
+	if (strcmp(property, "APTX-HD") == 0)
+		return ba_variant_new_aptx_hd();
+
+	if (strcmp(property, "Battery") == 0)
+		return ba_variant_new_battery();
+
+	*error = g_error_new(G_DBUS_ERROR, G_DBUS_ERROR_NOT_SUPPORTED,
+			"Property not supported '%s'", property);
+	return NULL;
+}
+
 /**
  * Register BlueALSA D-Bus manager interface. */
 unsigned int bluealsa_dbus_manager_register(GError **error) {
 	static const GDBusInterfaceVTable vtable = {
-		.method_call = bluealsa_manager_method_call };
+		.method_call = bluealsa_manager_method_call,
+		.get_property = bluealsa_manager_get_property,
+	 };
 	return g_dbus_connection_register_object(config.dbus, "/org/bluealsa",
 			(GDBusInterfaceInfo *)&bluealsa_iface_manager, &vtable, NULL, NULL, error);
 }

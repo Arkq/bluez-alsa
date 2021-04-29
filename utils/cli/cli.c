@@ -220,6 +220,195 @@ static int cmd_list_pcms(int argc, char *argv[]) {
 	return EXIT_SUCCESS;
 }
 
+static void print_string(const char *key, const char *val) {
+	printf("%s: %s\n", key, val ? val : "[ Unknown ]");
+}
+
+static void print_string_array(const char *key, const void *data, int size, int strlen) {
+	const char *array = data;
+	int count;
+
+	printf("%s:", key);
+	for (count = 0; count < size && array[count * strlen]; count++)
+		printf(" %s", &array[count*strlen]);
+	printf("\n");
+}
+
+static void	print_boolean(const char *key, bool val) {
+	printf("%s: %s\n", key, val ?  "Yes" : "No");
+}
+
+static bool profile_enabled(const char *profile, const struct ba_status *status) {
+	return memmem(status->profiles, sizeof(status->profiles),
+			profile, strlen(profile)) != NULL;
+}
+
+static int cmd_status(int argc, char *argv[]) {
+	DBusError error = DBUS_ERROR_INIT;
+
+	if (argc != 1) {
+		cmd_print_error("Invalid number of arguments");
+		return EXIT_FAILURE;
+	}
+
+	struct ba_status status = { 0 };
+	if (!bluealsa_dbus_get_status(&dbus_ctx, &status, &error)) {
+		if (dbus_error_is_set(&error))
+			cmd_print_error("DBus error: %s\n", error.message);
+		return EXIT_FAILURE;
+	}
+
+	print_string("Version", status.version);
+
+	print_string_array("Profiles", &status.profiles,
+		ARRAYSIZE(status.profiles), sizeof(status.profiles[0]));
+
+	print_string_array("Adapters", &status.adapters,
+		ARRAYSIZE(status.adapters), sizeof(status.adapters[0]));
+
+	print_string_array("Adapter Filter", status.adapter_filter,
+		 ARRAYSIZE(status.adapter_filter), sizeof(status.adapter_filter[0]));
+
+	bool internal_hfp_enabled = false;
+	if (profile_enabled("HFP-AG", &status)) {
+		internal_hfp_enabled = true;
+		print_string_array("HFP AG SDP Features",
+			status.hfp.sdp_features_ag,
+			ARRAYSIZE(status.hfp.sdp_features_ag),
+			sizeof(status.hfp.sdp_features_ag[0]));
+		print_string_array("HFP AG RFCOMM Features",
+			status.hfp.rfcomm_features_ag,
+			ARRAYSIZE(status.hfp.rfcomm_features_ag),
+			sizeof(status.hfp.rfcomm_features_ag[0]));
+	}
+
+	if (profile_enabled("HFP-HF", &status)) {
+		internal_hfp_enabled = true;
+		print_string_array("HFP HF SDP Features",
+			status.hfp.sdp_features_hf,
+			ARRAYSIZE(status.hfp.sdp_features_hf),
+			sizeof(status.hfp.sdp_features_hf[0]));
+		print_string_array("HFP HF RFCOMM Features",
+			status.hfp.rfcomm_features_hf,
+			ARRAYSIZE(status.hfp.rfcomm_features_hf),
+			sizeof(status.hfp.rfcomm_features_hf[0]));
+	}
+
+	if (internal_hfp_enabled) {
+		printf("HFP XAPL Vendor ID: 0x%X\n", status.hfp.xapl_vendor_id);
+		printf("HFP XAPL Product ID: 0x%X\n", status.hfp.xapl_product_id);
+		print_string("HFP XAPL Software Version", status.hfp.xapl_software_version);
+		print_string("HFP XAPL Product Name", status.hfp.xapl_product_name);
+		print_string_array("HFP XAPL Features",
+			status.hfp.xapl_features,
+			ARRAYSIZE(status.hfp.xapl_features),
+			sizeof(status.hfp.xapl_features[0]));
+	}
+
+	if (profile_enabled("HFP", &status)) {
+		print_boolean("HFP mSBC Available", status.msbc_available);
+	}
+
+	if (profile_enabled("A2DP-source", &status)) {
+		print_boolean("A2DP Native Volume", status.a2dp.native_volume);
+		print_boolean("A2DP Force Mono", status.a2dp.force_mono);
+		print_boolean("A2DP Force 44100", status.a2dp.force_44100);
+		if (status.a2dp.keep_alive >= 0)
+			printf("A2DP Keep Alive: %d seconds\n", status.a2dp.keep_alive);
+		else
+			printf("A2DP Keep Alive: %s\n", "Unlimited");
+		print_string("SBC Quality", status.sbc_quality);
+	}
+
+	if (profile_enabled("A2DP", &status)) {
+		print_boolean("AAC Available", status.aac.available);
+		if (status.aac.available && profile_enabled("A2DP-source", &status)) {
+			print_boolean("AAC Afterburner", status.aac.afterburner);
+			printf("AAC LATM Version: %u\n", status.aac.latm_version);
+			printf("AAC VBR Mode: %u\n", status.aac.vbr_mode);
+		}
+
+		print_boolean("MPEG Available", status.mpeg.available);
+		if (status.mpeg.available && profile_enabled("A2DP-source", &status)) {
+			printf("MPEG Quality: %u\n", status.mpeg.quality);
+			printf("MPEG VBR Quality: %u\n", status.mpeg.vbr_quality);
+		}
+
+		print_boolean("APTX Available", status.aptx_available);
+		print_boolean("APTX-HD Available", status.aptx_hd_available);
+
+		print_boolean("LDAC Available", status.ldac.available);
+		if (status.ldac.available && profile_enabled("A2DP-source", &status)) {
+			print_boolean("LDAC ABR", status.ldac.abr);
+			printf("LDAC Eqmid: %u\n", status.ldac.eqmid);
+		}
+	}
+
+	print_boolean("Battery Available", status.battery.available);
+	if (status.battery.available)
+		printf("Battery Level: %d%%\n", status.battery.level);
+
+	return EXIT_SUCCESS;
+}
+
+static int cmd_list_services(int argc, char *argv[]) {
+
+	if (argc != 1) {
+		cmd_print_error("Invalid number of arguments");
+		return EXIT_FAILURE;
+	}
+
+	DBusMessage *msg = NULL, *rep = NULL;
+	DBusError err = DBUS_ERROR_INIT;
+	int result = EXIT_FAILURE;
+
+	if ((msg = dbus_message_new_method_call("org.freedesktop.DBus",
+			"/org/freedesktop/DBus",
+			"org.freedesktop.DBus", "ListNames")) == NULL) {
+		dbus_set_error(&err, DBUS_ERROR_FAILED, "%s", strerror(ENOMEM));
+		goto fail;
+	}
+
+	if ((rep = dbus_connection_send_with_reply_and_block(dbus_ctx.conn,
+				msg, DBUS_TIMEOUT_USE_DEFAULT, &err)) == NULL) {
+		goto fail;
+	}
+
+	DBusMessageIter iter;
+	if (!dbus_message_iter_init(rep, &iter)) {
+		dbus_set_error(&err, DBUS_ERROR_FAILED, "%s", strerror(ENOMEM));
+		goto fail;
+	}
+
+	DBusMessageIter iter_names;
+	for (dbus_message_iter_recurse(&iter, &iter_names);
+			dbus_message_iter_get_arg_type(&iter_names) != DBUS_TYPE_INVALID;
+			dbus_message_iter_next(&iter_names)) {
+
+		if (dbus_message_iter_get_arg_type(&iter_names) != DBUS_TYPE_STRING) {
+			dbus_set_error(&err, DBUS_ERROR_FAILED, "DBus message corrupted");
+			goto fail;
+		}
+
+		const char *name;
+		dbus_message_iter_get_basic(&iter_names, &name);
+		if (strncmp(name, "org.bluealsa", strlen("org.bluealsa")) == 0)
+			printf("%s\n", name);
+
+	}
+	result = EXIT_SUCCESS;
+
+fail:
+	if (dbus_error_is_set(&err))
+		cmd_print_error("DBus error: %s\n", err.message);
+
+	if (msg != NULL)
+		dbus_message_unref(msg);
+	if (rep != NULL)
+		dbus_message_unref(rep);
+	return result;
+}
+
 static int cmd_info(int argc, char *argv[]) {
 
 	if (argc != 2) {
@@ -580,12 +769,14 @@ static struct command {
 	const char *help;
 } commands[] = {
 	{ "list-pcms", cmd_list_pcms, "", "List all PCM paths" },
+	{ "list-services", cmd_list_services, "", "List all bluealsa services" },
+	{ "status", cmd_status, "", "Show service runtime configuration" },
 	{ "info", cmd_info, "<pcm-path>", "Show PCM properties etc" },
 	{ "codec", cmd_codec, "<pcm-path> [<codec>]", "Change codec used by PCM" },
 	{ "volume", cmd_volume, "<pcm-path> [<val>] [<val>]", "Set audio volume" },
 	{ "mute", cmd_mute, "<pcm-path> [y|n] [y|n]", "Mute/unmute audio" },
 	{ "soft-volume", cmd_softvol, "<pcm-path> [y|n]", "Enable/disable SoftVolume property" },
-	{ "monitor", cmd_monitor, "", "Display PCMAdded and PCMRemoved signals" },
+	{ "monitor", cmd_monitor, "", "Display PCMAdded & PCMRemoved signals" },
 	{ "open", cmd_open, "<pcm-path>", "Transfer raw PCM via stdin or stdout" },
 };
 
@@ -600,7 +791,7 @@ static void usage(const char *progname) {
 	printf("\nCommands:\n");
 	size_t i;
 	for (i = 0; i < ARRAYSIZE(commands); i++)
-		printf("  %-12s%-27s%s\n", commands[i].name, commands[i].args, commands[i].help);
+		printf("  %-13s%-27s%s\n", commands[i].name, commands[i].args, commands[i].help);
 	printf("\nNotes:\n");
 	printf("   1. <pcm-path> must be a valid BlueALSA PCM path as returned by "
 	       "the list-pcms command.\n");

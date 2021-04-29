@@ -82,6 +82,80 @@ static const GDBusSignalInfo *bluealsa_iface_manager_signals[] = {
 	NULL,
 };
 
+static const GDBusPropertyInfo bluealsa_iface_manager_Version = {
+	-1, "Version", "s", G_DBUS_PROPERTY_INFO_FLAGS_READABLE, NULL
+};
+
+static const GDBusPropertyInfo bluealsa_iface_manager_Profiles = {
+	-1, "Profiles", "as", G_DBUS_PROPERTY_INFO_FLAGS_READABLE, NULL
+};
+
+static const GDBusPropertyInfo bluealsa_iface_manager_Adapters = {
+	-1, "Adapters", "as", G_DBUS_PROPERTY_INFO_FLAGS_READABLE, NULL
+};
+
+static const GDBusPropertyInfo bluealsa_iface_manager_AdapterFilter = {
+	-1, "AdapterFilter", "as", G_DBUS_PROPERTY_INFO_FLAGS_READABLE, NULL
+};
+
+static const GDBusPropertyInfo bluealsa_iface_manager_HFP = {
+	-1, "HFP", "a{sv}", G_DBUS_PROPERTY_INFO_FLAGS_READABLE, NULL
+};
+
+static const GDBusPropertyInfo bluealsa_iface_manager_MSBC = {
+	-1, "MSBC", "b", G_DBUS_PROPERTY_INFO_FLAGS_READABLE, NULL
+};
+
+static const GDBusPropertyInfo bluealsa_iface_manager_A2DP = {
+	-1, "A2DP", "a{sv}", G_DBUS_PROPERTY_INFO_FLAGS_READABLE, NULL
+};
+
+static const GDBusPropertyInfo bluealsa_iface_manager_SBC_Quality = {
+	-1, "SBCQuality", "s", G_DBUS_PROPERTY_INFO_FLAGS_READABLE, NULL
+};
+
+static const GDBusPropertyInfo bluealsa_iface_manager_AAC = {
+	-1, "AAC", "a{sv}", G_DBUS_PROPERTY_INFO_FLAGS_READABLE, NULL
+};
+
+static const GDBusPropertyInfo bluealsa_iface_manager_MPEG = {
+	-1, "MPEG", "a{sv}", G_DBUS_PROPERTY_INFO_FLAGS_READABLE, NULL
+};
+
+static const GDBusPropertyInfo bluealsa_iface_manager_APTX = {
+	-1, "APTX", "b", G_DBUS_PROPERTY_INFO_FLAGS_READABLE, NULL
+};
+
+static const GDBusPropertyInfo bluealsa_iface_manager_APTX_HD = {
+	-1, "APTX-HD", "b", G_DBUS_PROPERTY_INFO_FLAGS_READABLE, NULL
+};
+
+static const GDBusPropertyInfo bluealsa_iface_manager_LDAC = {
+	-1, "LDAC", "a{sv}", G_DBUS_PROPERTY_INFO_FLAGS_READABLE, NULL
+};
+
+static const GDBusPropertyInfo bluealsa_iface_manager_Battery = {
+	-1, "Battery", "a{sv}", G_DBUS_PROPERTY_INFO_FLAGS_READABLE, NULL
+};
+
+static const GDBusPropertyInfo *bluealsa_iface_manager_properties[] = {
+	&bluealsa_iface_manager_Version,
+	&bluealsa_iface_manager_Profiles,
+	&bluealsa_iface_manager_Adapters,
+	&bluealsa_iface_manager_AdapterFilter,
+	&bluealsa_iface_manager_HFP,
+	&bluealsa_iface_manager_MSBC,
+	&bluealsa_iface_manager_A2DP,
+	&bluealsa_iface_manager_SBC_Quality,
+	&bluealsa_iface_manager_AAC,
+	&bluealsa_iface_manager_MPEG,
+	&bluealsa_iface_manager_APTX,
+	&bluealsa_iface_manager_APTX_HD,
+	&bluealsa_iface_manager_LDAC,
+	&bluealsa_iface_manager_Battery,
+	NULL,
+};
+
 static const GDBusArgInfo *pcm_Open_out[] = {
 	&arg_fd,
 	&arg_fd,
@@ -232,7 +306,7 @@ const GDBusInterfaceInfo bluealsa_iface_manager = {
 	-1, BLUEALSA_IFACE_MANAGER,
 	(GDBusMethodInfo **)bluealsa_iface_manager_methods,
 	(GDBusSignalInfo **)bluealsa_iface_manager_signals,
-	NULL,
+	(GDBusPropertyInfo **)bluealsa_iface_manager_properties,
 	NULL,
 };
 

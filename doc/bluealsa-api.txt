@@ -21,6 +21,176 @@ Signals         void PCMAdded(object path, dict props)
                         object path is only for a reference - it has been
                         already removed.
 
+Properties      string Version [readonly]
+
+                        Release version of BlueALSA service.
+
+                array{string} Profiles [readonly]
+
+                        Registered Bluetooth Profiles.
+
+                        Possible values: "A2DP-sink", "A2DP-source",
+                                         "HFP-ofono", "HFP-AG", "HFP-HF",
+                                         "HSP-AG" or "HSP-HS"
+
+                array{string} Adapters [readonly]
+
+                        Used HCI adapters. The device names ("hci0", etc) of the
+                        bluetooth adapters that the bluealsa service is using.
+
+                array{string} AdapterFilter [readonly]
+
+                        Configured HCI Adapters. A list of device names or local
+                        adapter MAC addresses that the bluealsa service is
+                        configured to use. If the list is empty, then the
+                        service will use all available adapters.
+
+                dict HFP [readonly]
+
+                        HFP Profile configuration.
+
+                        Possible values:
+
+                                array{string} FeaturesSDPHF
+
+                                        A list of features supported for HFP-HF,
+                                        advertised by Service Discovery.
+
+                                        Possible Values: "CLI", "ECNR", "TWC",
+                                                         "VOLUME", "VREC",
+                                                         "WBAND"
+
+                                array{string} FeaturesSDPAG
+
+                                        A list of features supported for HFP-AG,
+                                        advertised by Service Discovery.
+
+                                        Possible Values: "ECNR", "RING", "TWC",
+                                                         "VREC", "VTAG", "WBAND"
+
+                                array{string} FeaturesRFCOMMHF
+
+                                        A list of features supported for HFP-HF,
+                                        available over RFCOMM link.
+
+                                        Possible Values: "3WC", "CLI", "CODEC",
+                                                         "ECC", "ECNR", "ECS",
+                                                         "ESCO", "HFIND",
+                                                         "VOICE", "VOLUME"
+
+                                array{string} FeaturesRFCOMMAG
+
+                                        A list of features supported for HFP-AG,
+                                        available over RFCOMM link.
+
+                                        Possible Values: "3WC", "CODEC", "ECC",
+                                                         "ECNR", "ECS", "EERC",
+                                                         "ESCO", "HFIND",
+                                                         "REJECT", "RING",
+                                                         "VOICE", "VTAG",
+                                uint32 XAPLVendorID
+
+                                uint32 XAPLProductID
+
+                                string XAPLSoftwareVersion
+
+                                string XAPLProductName
+
+                                array{string} XAPLFeatures
+
+                                        Possible Values: "BATTERY", "DOCKING",
+                                                         "SIRI", "DENOISE"
+
+                                boolean MSBC [readonly]
+
+                                        True if mSBC codec is available for HFP.
+
+                dict A2DP [readonly]
+
+                        A2DP Profile configuration.
+
+                        Possible values:
+
+                                boolean NativeVolume
+
+                                boolean ForceMono
+
+                                boolean Force44100
+
+                                uint32 KeepAlive
+
+                string SBCQuality [readonly]
+
+                        Configured SBC encoding quality.
+
+                        Possible values: "LOW", "MEDIUM", "HIGH", "XQ"
+
+                dict AAC [readonly]
+
+                        AAC codec configuration.
+
+                        Possible values:
+
+                                boolean Available
+
+                                        True if AAC support is configured.
+
+                                boolean Afterburner
+
+                                uint8 LATMVersion
+
+                                uint8 VBRMode
+
+                dict MPEG [readonly]
+
+                        MPEG codec configuration.
+
+                        Possible values:
+
+                                boolean Available
+
+                                        True if MPEG support is configured.
+
+                                uint8 Quality
+
+                                uint8 VBRQuality
+
+                boolean APTX [readonly]
+
+                        True if APTX codec is configured.
+
+                boolean APTX-HD [readonly]
+
+                        True if APTX-HD codec is configured.
+
+                dict LDAC [readonly]
+
+                        LDAC codec configuration.
+
+                        Possible values:
+
+                                boolean Available
+
+                                        True if LDAC support is configured.
+
+                                boolean ABR
+
+                                uint8 Eqmid
+
+                dict battery [readonly]
+
+                        Local battery status.
+
+                        Possible values:
+
+                        boolean Available
+
+                                True if local battery level is is monitored.
+
+                        uint32 Level
+
+                                Percentage level of battery charge.
+
 PCM hierarchy
 =============
 

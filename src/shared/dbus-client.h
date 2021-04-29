@@ -60,6 +60,56 @@ struct ba_dbus_ctx {
 };
 
 /**
+ * BlueALSA Service status object. */
+struct ba_status {
+	char version[32];
+	char profiles[8][12];
+	char adapters[11][5];
+	char adapter_filter[11][5];
+	struct {
+		char sdp_features_hf[7][7];
+		char sdp_features_ag[7][7];
+		char rfcomm_features_hf[11][7];
+		char rfcomm_features_ag[13][7];
+		dbus_uint32_t xapl_vendor_id;
+		dbus_uint32_t xapl_product_id;
+		char xapl_software_version[32];
+		char xapl_product_name[32];
+		char xapl_features[5][8];
+	} hfp;
+	dbus_bool_t msbc_available;
+	struct {
+		dbus_bool_t native_volume;
+		dbus_bool_t force_mono;
+		dbus_bool_t force_44100;
+		dbus_int32_t keep_alive;
+	} a2dp;
+	char sbc_quality[7];
+	struct {
+		dbus_bool_t available;
+		dbus_bool_t afterburner;
+		unsigned char latm_version;
+		unsigned char vbr_mode;
+	} aac;
+	struct {
+		dbus_bool_t available;
+		unsigned char quality;
+		unsigned char vbr_quality;
+	} mpeg;
+	dbus_bool_t aptx_available;
+	dbus_bool_t aptx_hd_available;
+	struct {
+		dbus_bool_t available;
+		dbus_bool_t abr;
+		unsigned char eqmid;
+	} ldac;
+	struct {
+		dbus_bool_t available;
+		dbus_uint32_t level;
+	} battery;
+};
+
+/**
  * BlueALSA PCM object property. */
 enum ba_pcm_property {
 	BLUEALSA_PCM_SOFT_VOLUME,
@@ -143,6 +193,11 @@ dbus_bool_t bluealsa_dbus_connection_poll_dispatch(
 		struct ba_dbus_ctx *ctx,
 		struct pollfd *fds,
 		nfds_t nfds);
+
+dbus_bool_t bluealsa_dbus_get_status(
+		struct ba_dbus_ctx *ctx,
+		struct ba_status *status,
+		DBusError *error);
 
 dbus_bool_t bluealsa_dbus_get_pcms(
 		struct ba_dbus_ctx *ctx,
