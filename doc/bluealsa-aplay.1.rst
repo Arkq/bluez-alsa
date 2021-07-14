@@ -6,7 +6,7 @@ bluealsa-aplay
 a simple bluealsa player
 ------------------------
 
-:Date: June 2021
+:Date: July 2021
 :Manual section: 1
 :Manual group: General Commands Manual
 :Version: $VERSION$
@@ -84,6 +84,18 @@ OPTIONS
     too fast) or dropped A2DP frames in the **bluealsa(8)** server (if the
     effective rate is too slow). Increase the period time with this option if
     this problem occurs.
+
+-M NAME, --mixer=NAME
+    Select ALSA mixer device to use for controlling audio output.
+    The default is ``default``.
+
+--mixer-name=NAME
+    Set the name of the mixer element.
+    The default is ``Master``.
+
+--mixer-index=NUM
+    Set the index of the mixer channel.
+    The default is ``0``.
 
 --profile-a2dp
     Use A2DP profile (default).
