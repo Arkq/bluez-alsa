@@ -7,8 +7,8 @@ bin_PROGRAMS = bluealsa-aplay
 
 bluealsa_aplay_SOURCES = \
 	../../src/shared/dbus-client.c \
-	../../src/shared/ffb.c \
 	../../src/shared/log.c \
+	ring-buffer.c \
 	alsa-pcm.c \
 	dbus.c \
 	aplay.c
